@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mis Videos</title>
+<style>
+  :root { --bg:#0f0f12; --card:#1a1a20; --text:#f1f1f4; --muted:#9a9aa6; --accent:#ff3d5a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { position:sticky; top:0; z-index:5; display:flex; gap:16px; align-items:center; padding:14px 20px; background:rgba(15,15,18,.92); backdrop-filter:blur(8px); border-bottom:1px solid #26262e; }
+  .logo { font-weight:800; font-size:1.3rem; white-space:nowrap; }
+  .logo span { color:var(--accent); }
+  #buscar { flex:1; max-width:520px; padding:10px 14px; border-radius:999px; border:1px solid #33333d; background:#121217; color:var(--text); font-size:1rem; }
+  #etiquetas { display:flex; gap:8px; flex-wrap:wrap; padding:14px 20px 0; }
+  .chip { padding:6px 12px; border-radius:999px; border:1px solid #33333d; background:var(--card); color:var(--text); cursor:pointer; font-size:.9rem; }
+  .chip.activa { background:var(--text); color:var(--bg); }
+  main { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:20px; padding:20px; }
+  .tarjeta { background:var(--card); border-radius:12px; overflow:hidden; cursor:pointer; transition:transform .15s; }
+  .tarjeta:hover { transform:translateY(-3px); }
+  .miniatura { aspect-ratio:16/9; width:100%; object-fit:cover; background:#000; display:block; }
+  .info { padding:12px 14px 16px; }
+  .info h3 { margin:0 0 6px; font-size:1rem; line-height:1.3; }
+  .info p { margin:0; color:var(--muted); font-size:.85rem; }
+  .vacio { grid-column:1/-1; text-align:center; color:var(--muted); padding:60px 0; }
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  #modal.abierto { display:flex; }
+  .reproductor { width:min(1000px, 100%); }
+  .marco { aspect-ratio:16/9; width:100%; background:#000; border-radius:10px; overflow:hidden; }
+  .marco iframe, .marco video { width:100%; height:100%; border:0; display:block; }
+  .reproductor h2 { margin:14px 0 6px; }
+  .reproductor p { color:var(--muted); margin:0; }
+  #cerrar { position:absolute; top:14px; right:20px; font-size:2rem; background:none; border:0; color:#fff; cursor:pointer; }
+  @media (max-width:600px) { header { flex-wrap:wrap; } #buscar { max-width:none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">▶ Mis<span>Videos</span></div>
+  <input id="buscar" type="search" placeholder="Buscar videos…">
+</header>
+<div id="etiquetas"></div>
+<main id="lista"></main>
+
+<div id="modal">
+  <button id="cerrar" aria-label="Cerrar">×</button>
+  <div class="reproductor">
+    <div class="marco" id="marco"></div>
+    <h2 id="m-titulo"></h2>
+    <p id="m-desc"></p>
+  </div>
+</div>
+
+<script>
+let videos = [];
+let etiquetaActiva = null;
+
+// Devuelve el ID si el enlace es de YouTube
+function idYouTube(url) {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function miniatura(v) {
+  if (v.miniatura) return `<img class="miniatura" src="${v.miniatura}" alt="" loading="lazy">`;
+  const yt = idYouTube(v.url);
+  if (yt) return `<img class="miniatura" src="https://img.youtube.com/vi/${yt}/hqdefault.jpg" alt="" loading="lazy">`;
+  return `<video class="miniatura" src="${v.url}#t=1" preload="metadata" muted></video>`;
+}
+
+function escapar(s = "") {
+  return s.replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+function pintar() {
+  const q = document.getElementById("buscar").value.toLowerCase();
+  const filtrados = videos.filter(v =>
+    (!etiquetaActiva || (v.etiquetas || []).includes(etiquetaActiva)) &&
+    (v.titulo + " " + (v.descripcion || "")).toLowerCase().includes(q)
+  );
+  const lista = document.getElementById("lista");
+  lista.innerHTML = filtrados.length ? "" : `<div class="vacio">No hay videos todavía. Agrega uno desde la pestaña Actions de GitHub.</div>`;
+  filtrados.forEach(v => {
+    const t = document.createElement("div");
+    t.className = "tarjeta";
+    t.innerHTML = `${miniatura(v)}<div class="info"><h3>${escapar(v.titulo)}</h3><p>${escapar(v.fecha || "")}</p></div>`;
+    t.onclick = () => abrir(v);
+    lista.appendChild(t);
+  });
+}
+
+function pintarEtiquetas() {
+  const todas = [...new Set(videos.flatMap(v => v.etiquetas || []))];
+  const cont = document.getElementById("etiquetas");
+  cont.innerHTML = "";
+  ["Todos", ...todas].forEach(e => {
+    const b = document.createElement("button");
+    b.className = "chip" + ((e === "Todos" ? !etiquetaActiva : etiquetaActiva === e) ? " activa" : "");
+    b.textContent = e;
+    b.onclick = () => { etiquetaActiva = e === "Todos" ? null : e; pintarEtiquetas(); pintar(); };
+    cont.appendChild(b);
+  });
+}
+
+function abrir(v) {
+  const yt = idYouTube(v.url);
+  document.getElementById("marco").innerHTML = yt
+    ? `<iframe src="https://www.youtube.com/embed/${yt}?autoplay=1" allow="autoplay; fullscreen" allowfullscreen></iframe>`
+    : `<video src="${v.url}" controls autoplay></video>`;
+  document.getElementById("m-titulo").textContent = v.titulo;
+  document.getElementById("m-desc").textContent = v.descripcion || "";
+  document.getElementById("modal").classList.add("abierto");
+}
+
+function cerrar() {
+  document.getElementById("marco").innerHTML = "";
+  document.getElementById("modal").classList.remove("abierto");
+}
+
+document.getElementById("cerrar").onclick = cerrar;
+document.getElementById("modal").onclick = e => { if (e.target.id === "modal") cerrar(); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") cerrar(); });
+document.getElementById("buscar").oninput = pintar;
+
+fetch("videos.json", { cache: "no-store" })
+  .then(r => r.json())
+  .then(data => { videos = data.reverse(); pintarEtiquetas(); pintar(); })
+  .catch(() => { document.getElementById("lista").innerHTML = `<div class="vacio">No se pudo cargar videos.json</div>`; });
+</script>
+</body>
+</html>

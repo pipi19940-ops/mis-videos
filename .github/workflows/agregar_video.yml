@@ -1,0 +1,60 @@
+name: Agregar video
+
+on:
+  workflow_dispatch:
+    inputs:
+      titulo:
+        description: "Título del video"
+        required: true
+      url:
+        description: "Enlace (YouTube, .mp4 o ruta como videos/mi_video.mp4)"
+        required: true
+      descripcion:
+        description: "Descripción (opcional)"
+        required: false
+      etiquetas:
+        description: "Etiquetas separadas por comas (ej: viajes, música)"
+        required: false
+      miniatura:
+        description: "Enlace a una imagen de portada (opcional)"
+        required: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  agregar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Añadir a videos.json
+        env:
+          TITULO: ${{ inputs.titulo }}
+          URL: ${{ inputs.url }}
+          DESC: ${{ inputs.descripcion }}
+          TAGS: ${{ inputs.etiquetas }}
+          MINI: ${{ inputs.miniatura }}
+        run: |
+          jq --arg t "$TITULO" --arg u "$URL" --arg d "$DESC" --arg g "$TAGS" --arg m "$MINI" \
+             --arg f "$(date +%F)" \
+             '. += [{titulo:$t, url:$u, descripcion:$d, fecha:$f,
+                     etiquetas:($g | split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length>0)))}
+                    + (if $m == "" then {} else {miniatura:$m} end)]' \
+             videos.json > tmp.json && mv tmp.json videos.json
+
+      - name: Guardar cambios
+        env:
+          TITULO: ${{ inputs.titulo }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add videos.json
+          git commit -m "Agregar video: $TITULO"
+          git push
+
+  publicar:
+    needs: agregar
+    uses: ./.github/workflows/deploy.yml
