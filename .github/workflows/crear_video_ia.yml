@@ -1,0 +1,64 @@
+name: Crear video con IA
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Describe el video (mejor en inglés)"
+        required: true
+      imagen:
+        description: "Enlace a una imagen para animar (o ruta como imagenes/foto.jpg)"
+        required: false
+      titulo:
+        description: "Título (si lo dejas vacío usa el prompt)"
+        required: false
+      etiquetas:
+        description: "Etiquetas separadas por comas"
+        required: false
+        default: "ia"
+      space:
+        description: "Space de Hugging Face que crea el video"
+        required: true
+        default: "multimodalart/wan2-1-fast"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  crear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install gradio_client
+
+      - name: Crear el video
+        env:
+          SPACE: ${{ inputs.space }}
+          PROMPT: ${{ inputs.prompt }}
+          IMAGEN: ${{ inputs.imagen }}
+          TITULO: ${{ inputs.titulo }}
+          ETIQUETAS: ${{ inputs.etiquetas }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python scripts/crear_video_ia.py
+
+      - name: Guardar el video
+        env:
+          TITULO: ${{ inputs.titulo || inputs.prompt }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add videos videos.json
+          git commit -m "Video con IA: $TITULO"
+          git push
+
+  publicar:
+    needs: crear
+    uses: ./.github/workflows/deploy.yml
