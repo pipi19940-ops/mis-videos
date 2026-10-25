@@ -3,7 +3,10 @@
     "titulo": "Big Buck Bunny (video de ejemplo)",
     "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
     "descripcion": "Video de prueba para ver cómo funciona el sitio. Puedes borrarlo.",
-    "etiquetas": ["ejemplo"],
-    "fecha": "2026-10-25"
+    "etiquetas": [
+      "ejemplo"
+    ],
+    "fecha": "2026-10-25",
+    "miniatura": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg"
   }
 ]
